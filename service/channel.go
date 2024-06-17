@@ -11,14 +11,14 @@ import (
 
 // disable & notify
 func DisableChannel(channelId int, channelName string, reason string) {
-	model.UpdateChannelStatusById(channelId, common.ChannelStatusAutoDisabled)
+	model.UpdateChannelStatusById(channelId, common.ChannelStatusAutoDisabled, reason)
 	subject := fmt.Sprintf("通道「%s」（#%d）已被禁用", channelName, channelId)
 	content := fmt.Sprintf("通道「%s」（#%d）已被禁用，原因：%s", channelName, channelId, reason)
 	notifyRootUser(subject, content)
 }
 
 func EnableChannel(channelId int, channelName string) {
-	model.UpdateChannelStatusById(channelId, common.ChannelStatusEnabled)
+	model.UpdateChannelStatusById(channelId, common.ChannelStatusEnabled, "")
 	subject := fmt.Sprintf("通道「%s」（#%d）已被启用", channelName, channelId)
 	content := fmt.Sprintf("通道「%s」（#%d）已被启用", channelName, channelId)
 	notifyRootUser(subject, content)
@@ -31,7 +31,7 @@ func ShouldDisableChannel(err *relaymodel.OpenAIError, statusCode int) bool {
 	if err == nil {
 		return false
 	}
-	if statusCode == http.StatusUnauthorized {
+	if statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden {
 		return true
 	}
 	switch err.Code {
@@ -58,6 +58,8 @@ func ShouldDisableChannel(err *relaymodel.OpenAIError, statusCode int) bool {
 	} else if strings.HasPrefix(err.Message, "This organization has been disabled.") {
 		return true
 	} else if strings.HasPrefix(err.Message, "You exceeded your current quota") {
+		return true
+	} else if strings.HasPrefix(err.Message, "Permission denied") {
 		return true
 	}
 	return false
